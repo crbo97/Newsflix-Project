@@ -2,35 +2,54 @@ type Props = {
   title: string;
   source: string;
   summary: string;
-  sentiment: "Positive" | "Neutral" | "Negative";
+  mood: "Positive" | "Neutral" | "Negative";
   topic: string;
   language: string;
+  url: string;
 };
 
-export default function NewsCard({ title, source, summary, sentiment, topic, language }: Props) {
-  const sentimentStyles = {
-    Positive: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-    Neutral: "text-zinc-400 bg-zinc-500/10 border-zinc-500/20",
-    Negative: "text-rose-400 bg-rose-500/10 border-rose-500/20",
+export default function NewsCard({
+  title,
+  source,
+  summary,
+  mood,
+  topic,
+  language,
+  url,
+}: Props) {
+  const moodStyles = {
+    Positive: "bg-emerald-500/20 text-emerald-300",
+    Neutral: "bg-slate-500/20 text-slate-200",
+    Negative: "bg-rose-500/20 text-rose-300",
   };
 
   return (
-    <article className="rounded-2xl bg-neutral-900 p-5 border border-white/5 hover:border-red-500/50 transition-all cursor-default">
-      <div className="flex justify-between items-start mb-3">
-        <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">{source}</p>
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${sentimentStyles[sentiment]}`}>
-          {sentiment}
+    <article className="rounded-2xl bg-neutral-900 p-5 transition hover:bg-neutral-800">
+      <p className="text-sm text-neutral-400">{source}</p>
+
+      <h4 className="mt-3 text-lg font-semibold">{title}</h4>
+
+      <p className="mt-2 text-sm text-neutral-300">{summary}</p>
+
+      <p className="mt-3 text-xs text-neutral-500">
+        {topic} · {language}
+      </p>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <span
+          className={`inline-block rounded-full px-3 py-1 text-xs ${moodStyles[mood]}`}
+        >
+          {mood}
         </span>
-      </div>
 
-      <h4 className="text-lg font-semibold leading-tight text-white mb-2">{title}</h4>
-      <p className="text-sm text-neutral-400 line-clamp-2 mb-4">{summary}</p>
-
-      {/* UX TAGS: Topic & Language */}
-      <div className="pt-4 border-t border-white/5">
-        <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-medium">
-          {topic} <span className="mx-1 text-neutral-700">•</span> {language}
-        </p>
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm text-red-300 hover:text-red-200"
+        >
+          Read article
+        </a>
       </div>
     </article>
   );
