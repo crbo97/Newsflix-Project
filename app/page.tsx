@@ -17,50 +17,30 @@ type NewsItem = {
 };
 
 const sentiments = ["All", "Positive", "Neutral", "Negative"] as const;
-const publishers = ["all", "bbc", "cnn", "positive-news", "good-news-network", "reasons-to-be-cheerful"] as const;
-const topics = [
-  "All",
-  "General",
-  "Environment",
-  "Business",
-  "Health",
-  "Science",
-  "Technology",
-] as const;
-const languages = [
-  "All",
-  "English",
-  "Spanish",
-  "German",
-  "French",
-  "Chinese",
-] as const;
+const publishers = ["all", "bbc", "cnn", "usa-today"] as const;
 
 export default function Home() {
   const [articles, setArticles] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [query, setQuery] = useState("");
-  const [inputValue, setInputValue] = useState("");
   const [publisher, setPublisher] = useState("all");
-
-  const [mounted, setMounted] = useState(false);
-
-  const [sentimentFilter, setSentimentFilter] = useState("All");
-  const [topicFilter, setTopicFilter] = useState("All");
-  const [languageFilter, setLanguageFilter] = useState("All");
   const [searchTrigger, setSearchTrigger] = useState(0);
+  const [mounted, setMounted] = useState(false);
+  const [sentimentFilter, setSentimentFilter] = useState("All");
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleRefreshFeed = () => {
+    setSearchTrigger((prev) => prev + 1);
+  };
 
   useEffect(() => {
     async function loadNews() {
       setLoading(true);
       try {
         const res = await fetch(
-          `/api/news?q=${encodeURIComponent(query)}&pageSize=100&publisher=${publisher}`
+          `/api/news?q=&pageSize=15&publisher=${publisher}`
         );
         const data = await res.json();
         setArticles(data.articles ?? []);
@@ -73,20 +53,16 @@ export default function Home() {
     }
 
     loadNews();
-  }, [query, publisher, searchTrigger]);
+  }, [publisher, searchTrigger]);
 
   const filteredArticles = useMemo(() => {
     return articles.filter((article) => {
-      const sentimentOk =
-        sentimentFilter === "All" || article.sentiment === sentimentFilter;
-      const topicOk =
-        topicFilter === "All" || article.topic === topicFilter;
-      const languageOk =
-        languageFilter === "All" || article.language === languageFilter;
-
-      return sentimentOk && topicOk && languageOk;
+      return (
+        sentimentFilter === "All" ||
+        article.sentiment === sentimentFilter
+      );
     });
-  }, [articles, sentimentFilter, topicFilter, languageFilter]);
+  }, [articles, sentimentFilter]);
 
   const sentimentCounts = useMemo(() => {
     const total = articles.length || 1;
@@ -102,7 +78,7 @@ export default function Home() {
   }, [articles]);
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className= "min-h-screen bg-gradient-to-br from-neutral-950 via-black to-neutral-900 text-white">
       <section className="mx-auto max-w-7xl px-6 py-14">
         <div className="mb-10">
           <h1 className="text-5xl font-bold tracking-tight text-red-500">
@@ -118,25 +94,19 @@ export default function Home() {
             Your personalized news stream
           </h2>
 
-          <div className="mt-6 flex flex-col gap-3 md:flex-row">
-            <input
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-			        onKeyDown={(e) => {
-  			        if (e.key === "Enter") {
-    			        setQuery(inputValue.trim());
-                   setSearchTrigger((prev) => prev + 1);
- 			       }
-		         }}
-              placeholder="Search any topic..."
-              className="w-full rounded-full bg-black px-5 py-3 text-white outline-none ring-1 ring-white/10"
-            />
+          <div className="mt-6 max-w-3xl rounded-2xl border border-white/5 bg-black/40 p-5">
+            <p className="text-lg leading-relaxed text-neutral-200">
+              Your news spot that cares for your mental health.
+            </p>
+            <p className="mt-2 text-sm text-neutral-400">
+              Check the tone of your news before diving into them.
+            </p>
 
             <button
-              onClick={() => setQuery(inputValue.trim())}
-              className="rounded-full bg-white px-5 py-3 font-medium text-black"
+              onClick={handleRefreshFeed}
+              className="mt-4 rounded-full bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-neutral-200"
             >
-              Search
+              Refresh feed
             </button>
           </div>
 
@@ -153,7 +123,7 @@ export default function Home() {
                       : "bg-neutral-800 text-white hover:bg-neutral-700"
                   }`}
                 >
-                  {p.toUpperCase()}
+                  {p === "usa-today" ? "USA Today" : p.toUpperCase()}
                 </button>
               ))}
             </div>
@@ -168,7 +138,7 @@ export default function Home() {
           )}
         </div>
 
-        <div className="mb-10 grid gap-8 md:grid-cols-3">
+        <div className="mb-10">
           <div>
             <p className="mb-3 text-sm text-neutral-400">Mood</p>
             <div className="flex flex-wrap gap-2">
@@ -183,44 +153,6 @@ export default function Home() {
                   }`}
                 >
                   {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-3 text-sm text-neutral-400">Topic</p>
-            <div className="flex flex-wrap gap-2">
-              {topics.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTopicFilter(t)}
-                  className={`rounded-full px-4 py-2 text-sm ${
-                    topicFilter === t
-                      ? "bg-white text-black"
-                      : "bg-neutral-900 text-white"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-3 text-sm text-neutral-400">Language</p>
-            <div className="flex flex-wrap gap-2">
-              {languages.map((l) => (
-                <button
-                  key={l}
-                  onClick={() => setLanguageFilter(l)}
-                  className={`rounded-full px-4 py-2 text-sm ${
-                    languageFilter === l
-                      ? "bg-white text-black"
-                      : "bg-neutral-900 text-white"
-                  }`}
-                >
-                  {l}
                 </button>
               ))}
             </div>

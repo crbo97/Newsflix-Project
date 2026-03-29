@@ -20,12 +20,8 @@ function mapPublisherToDomains(publisher: string | null): string | null {
       return "bbc.com,bbc.co.uk";
     case "cnn":
       return "cnn.com";
-    case "positive-news":
-      return "positive.news";
-    case "good-news-network":
-      return "goodnewsnetwork.org";
-    case "reasons-to-be-cheerful":
-      return "reasonstobecheerful.world";
+    case "usa-today":
+      return "usatoday.com";
     default:
       return null;
   }
@@ -117,13 +113,23 @@ function inferTopicFromKeywords(text: string): string {
     text.includes("league") ||
     text.includes("sports") ||
     text.includes("championship") ||
-    text.includes("player")
+    text.includes("player") ||
+    text.includes("lineup") ||
+    text.includes("team news") ||
+    text.includes("sprint") ||
+    text.includes("meters") ||
+    text.includes("athletics")
   ) {
     return "Sports";
   }
 
   if (
-    text.includes("ai") ||
+    /\bai\b/i.test(text) ||
+    text.includes("artificial intelligence") ||
+    text.includes("machine learning") ||
+    text.includes("generative ai") ||
+    text.includes("chatgpt") ||
+    text.includes("openai") ||
     text.includes("technology") ||
     text.includes("software") ||
     text.includes("apple") ||
@@ -189,6 +195,11 @@ function inferLanguageFromText(text: string): string {
   return "English";
 }
 
+/**
+ * Minimal rule layer:
+ * only obvious severe negative events.
+ * Everything else should go to Gemini.
+ */
 const strongNegativeWords = [
   "attack",
   "attacks",
@@ -201,56 +212,15 @@ const strongNegativeWords = [
   "killed",
   "dead",
   "death",
-  "injured",
-  "wounded",
-  "crisis",
-  "disaster",
-  "explosion",
-  "terror",
   "terrorist",
-  "hostage",
-  "sanction",
-  "sanctions",
-  "conflict",
-  "invasion",
-  "evacuation",
-  "shooting",
   "earthquake",
-  "flood",
   "wildfire",
   "hurricane",
-  "layoffs",
-  "recession",
-  "outbreak",
-  "collapse",
-  "crash",
-];
-
-const strongPositiveWords = [
-  "breakthrough",
-  "recovery",
-  "recover",
-  "peace deal",
-  "ceasefire",
-  "rescue",
-  "rescued",
-  "medical success",
-  "aid delivery",
-  "aid arrives",
-  "record growth",
-  "growth",
-  "improves",
-  "improvement",
-  "decline in deaths",
-  "fall in deaths",
-  "cure",
-  "approval",
-  "wins championship",
-  "expands access",
-  "scholarship",
-  "funding boost",
-  "job growth",
-  "clean energy expansion",
+  "flood",
+  "explosion",
+  "shooting",
+  "hostage",
+  "invasion",
 ];
 
 function classifyWithRules(title: string, description: string): ClassifiedResult | null {
@@ -261,16 +231,7 @@ function classifyWithRules(title: string, description: string): ClassifiedResult
       sentiment: "Negative",
       topic: inferTopicFromKeywords(text),
       language: inferLanguageFromText(text),
-      confidence: 0.92,
-    };
-  }
-
-  if (strongPositiveWords.some((word) => text.includes(word))) {
-    return {
-      sentiment: "Positive",
-      topic: inferTopicFromKeywords(text),
-      language: inferLanguageFromText(text),
-      confidence: 0.88,
+      confidence: 0.94,
     };
   }
 
@@ -283,13 +244,27 @@ async function classifyArticlesBatch(
   const prompt = `
 You are classifying multiple news articles for a product called Newsflix.
 
-Classify based on the likely emotional impact of the EVENT on a typical reader,
-not on whether the writing style sounds neutral or journalistic.
+Your job is to classify each article based on the likely REAL-WORLD IMPACT of the event on a typical reader,
+NOT just on whether isolated words sound positive or negative.
 
-Interpretation rules:
-- war, attacks, bombings, deaths, disasters, disease outbreaks, fraud, major layoffs, market crashes -> Negative
-- breakthroughs, recoveries, peace agreements, rescues, successful treatments, humanitarian aid, positive social improvements -> Positive
-- routine announcements, administrative changes, schedules, standard earnings reports, product updates without clear positive/negative impact -> Neutral
+Very important instructions:
+- "recovering", "growth", "improvement", or "hope" do NOT automatically mean Positive.
+- Example: "injury delays player's return despite recovering" should usually be Negative.
+- Example: "country lowers growth expectations" should usually be Negative or Neutral, NOT Positive.
+- Example: sports lineups, match previews, and athlete meet coverage should usually be Sports, not Technology.
+- Use the overall meaning of the title + description together.
+
+Sentiment guidelines:
+- Negative: war, attacks, disasters, injuries, delays, deaths, severe setbacks, major crises, layoffs, recession, collapse
+- Positive: genuine breakthroughs, peace agreements, rescues, cures, successful treatment outcomes, strong wins, meaningful social improvement
+- Neutral: routine announcements, previews, schedules, standard reporting without clearly positive or negative impact
+
+Topic guidelines:
+- Use the best-fit topic among:
+  General, Environment, Weather, Business, Entertainment, Climate Change, Health, Science, Sports, Technology
+
+Language guidelines:
+- Detect the primary language of the article text.
 
 Return ONLY valid JSON.
 Do not add markdown.
@@ -343,8 +318,8 @@ export async function GET(req: NextRequest) {
     rawQ || "world OR breakthrough OR recovery OR innovation OR success";
 
   const pageSize = Math.min(
-    Number(searchParams.get("pageSize") || "100"),
-    100
+    Number(searchParams.get("pageSize") || "15"),
+    10
   );
 
   const publisher = searchParams.get("publisher");
@@ -454,9 +429,14 @@ export async function GET(req: NextRequest) {
           confidence: 0.45,
         };
 
+      const finalSentiment: Sentiment =
+        classification.topic === "Sports"
+          ? "Neutral"
+          : classification.sentiment;
+
       return {
         ...article,
-        sentiment: classification.sentiment,
+        sentiment: finalSentiment,
         topic: classification.topic,
         language: classification.language,
         confidence: classification.confidence,
